@@ -20,18 +20,14 @@ import com.compiler.scanner.Token;
 public class ScannerException extends RuntimeException
 {
     private final Token.Location location;
-    private final String message;
 
     public ScannerException(String message, Token.Location location)
     {
         // Define the location in the string where the error occurred
         this.location = location;
 
-        // And the error message that was thrown (which is a concat of the error msg plus the location coords)
-        this.message = "%s  --> [Line %d:Char %d]".formatted(message, location.line(), location._char());
-
-        // Send the message over to super()
-        super(message);
+        // Create our message and send it to the super
+        super("%s  --> [Line %d:Char %d]".formatted(message, location.line(), location._char()));
     }
 
     // Potentially used to hotfix malformed source code during lexing and/or

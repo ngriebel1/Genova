@@ -42,15 +42,23 @@ public record Token(TokenType type,
     public enum TokenType
     {
         // --- Control & Special ---
-        EOF, INVALID, ERROR,
-        EOL,             // Keep if newlines matter (optional semicolons); otherwise safely ignore as whitespace
+        EOF, INVALID, ERROR, EOL,
 
         // --- Keywords ---
         IF, ELSE, WHILE, FOR, DO,
         RETURN, BREAK, CONTINUE, FN,
-        AUTO,            // Type inference (like modern C++)
-        INCLUDE, TRUE, FALSE,
-        NULL,            // Represents the keyword value 'null'
+        CLASS, SUPER, SUB, INHERITS,
+        CONST, TEMPLATE, STATIC,
+        DYNAMIC, OVERRIDE,
+        AUTO, INCLUDE, TRUE, FALSE, NULL,
+        TYPEOF, INSTANCEOF, THIS,
+        PUBLIC, PRIVATE, PROTECTED,
+
+        // --- Type names ---
+        OBJECT, INT, FLOAT, DOUBLE,
+        STRING, CHAR, BOOL, VOID, STRUCT,
+        ENUM,
+
 
         // --- Arithmetic Operators ---
         PLUS,            // +
@@ -112,10 +120,6 @@ public record Token(TokenType type,
         RIGHT_BRACE,      // }
         LEFT_BRACKET,     // [
         RIGHT_BRACKET,    // ]
-
-        // --- Types ---
-        INT, FLOAT, DOUBLE, STRING, CHAR, BOOL, VOID,
-        STRUCT, ENUM, CLASS, CONST,
 
         // --- Literals & Dynamic Identifiers ---
         IDENTIFIER,

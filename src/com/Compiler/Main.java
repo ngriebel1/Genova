@@ -18,19 +18,21 @@ public class Main
     {
         Scanner newScanner = new Scanner(
                 // PLUS MINUS STAR SLASH MINUS_EQUALS STAR_EQUALS SLASH_EQUALS STAR STAR STAR PLUS_EQUALS STAR_EQUALS SLASH_EQUALS
-                "+ - * / += \n-= *= /= /* This is a block comment.// Single line inside multi line test \nIt \nspans \nmultiple \nlines. */ * * * += *= /= "
+                "+ - * / \n += -= *= /= \n /* This is a block comment.// Single line inside multi line test \nIt \nspans \nmultiple \nlines. */ * * * \n += *= /= "
         );
 
-        final List<Token> newList;
+        List<Token> newList;
         try
         {
-            newList = newScanner.scanLine();
-            for (var token : newList)
+            while (!newScanner.isAtEnd())
             {
-                System.out.println(token.toString());
+                System.out.println("--- Scanning new line --- ");
+                newList = newScanner.scanLine();
+                for (var token : newList)
+                {
+                    System.out.println(token.toString());
+                }
             }
-
-            System.out.println("newList size = " + newList.size());
         }
         catch(ScannerException e)
         {
