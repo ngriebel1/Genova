@@ -10,6 +10,9 @@ public class SourceReader
     private int _char;
     private int _index;
 
+    /// Represents End-Of-File character
+    public static char EOF = '\0';
+
     public SourceReader(final String source)
     {
         _source = source;
@@ -27,19 +30,27 @@ public class SourceReader
     {
         return getCurrentIndex() >= _source.length();
     }
-
-    /// {@code isalpha(char)} determines if a char is an alphabetical character
+    /// {@code isAlpha(char)} determines if a char is an alphabetical character
     /// @return {@code boolean}
-    public boolean isalpha(char ch)
+    public boolean isAlpha(char ch)
     {
         return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
     }
-
-    /// {@code putback()} puts a character "back into the string" (reverses the index by 1)
-    public void putback()
-    {
-        // TODO: Implement the putback() method
-    }
+    /// {@code isDigit(char)} determines if a char is a number
+    /// @return {@code boolean}
+    public boolean isDigit(char ch) { return (ch >= '0' && ch <= '9'); }
+    /// {@code isAlphaNum(char)} determines if a char is an alphabetical OR a digit
+    /// @return {@code boolean}
+    public boolean isAlphaNum(char ch) { return (isAlpha(ch) || isDigit(ch)); }
+    /// {@code isSpace(char)} determines if a char is a space
+    /// @return {@code boolean}
+    public boolean isSpace(char ch) { return (ch == ' '); }
+    /// {@code isNewline(char)} determines if a char is a newline
+    /// @return {@code boolean}
+    public boolean isNewline(char ch) { return (ch == '\n'); }
+    /// {@code isEOF(char)} determines if a char is an end-of-file symbol
+    /// @return {@code boolean}
+    public boolean isEOF(char ch) { return (ch == EOF); }
 
     /// {@code munch()} wastes a char using {@code get()}
     public void munch()
