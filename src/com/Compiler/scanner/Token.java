@@ -15,7 +15,7 @@ public record Token(TokenType type,
      */
     public record Location(int line, int _char) {
         @Override
-        public String toString() {
+        public @NotNull String toString() {
             return "line " + line + ", col " + _char;
         }
     }
@@ -33,6 +33,11 @@ public record Token(TokenType type,
         return "TokenType: %s -> Token Lexeme: %s -> %s".formatted(
                 this.type.toString(), this.lexeme, this.at.toString()
         );
+    }
+
+    public String getLexeme()
+    {
+        return lexeme;
     }
 
     /**
