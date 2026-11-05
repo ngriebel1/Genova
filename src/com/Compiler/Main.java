@@ -6,39 +6,31 @@ import java.util.ArrayList;
 import com.compiler.exceptions.ScannerException;
 import com.compiler.scanner.Scanner;
 import com.compiler.scanner.Token;
+import com.compiler.scanner.SourceReader;
 
 
-public class Main
-{
+public class Main {
     /**
      * @author Nicholas Griebel
      * Main method used for debugging
      */
-    public static void main(String[] args)
-    {
-        Scanner newScanner = new Scanner(
-                // PLUS MINUS STAR SLASH MINUS_EQUALS STAR_EQUALS SLASH_EQUALS STAR STAR STAR PLUS_EQUALS STAR_EQUALS SLASH_EQUALS
-                "+ - * / \n += -= *= /= \n /* This is a block comment.// Single line inside multi line test \nIt \nspans \nmultiple \nlines. */ * * * \n += *= /= "
-        );
+    public static void main(String[] args) {
+        String testString = "int x = 42; double pi = 3.14;";
 
-        List<Token> newList;
-        try
-        {
-            while (!newScanner.isAtEnd())
-            {
-                System.out.println("--- Scanning new line --- ");
-                newList = newScanner.scanLine();
-                for (var token : newList)
-                {
+        Scanner scanner = new Scanner(testString);
+        List<Token> tokenList = new ArrayList<>();
+
+        while (!scanner.isAtEnd()) {
+            try {
+                System.out.println(" === Scanning New Line ===");
+                tokenList = scanner.scanLine();
+                for (var token : tokenList) {
                     System.out.println(token.toString());
                 }
+            } catch (ScannerException e) {
+                System.err.println(e.getMessage());
+                e.printDiagnostic(scanner.getReader());
             }
         }
-        catch(ScannerException e)
-        {
-            System.err.println("Caught a ScannerException! Message below: ");
-            System.err.println(e.getMessage());
-        }
     }
-
 }

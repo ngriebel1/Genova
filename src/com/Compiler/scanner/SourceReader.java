@@ -3,6 +3,7 @@ package com.compiler.scanner;
 // project environment imports
 import com.compiler.exceptions.ScannerException;
 
+// TODO: Create Javadoc for the SourceReader class
 public class SourceReader
 {
     private final String _source;
@@ -23,6 +24,37 @@ public class SourceReader
 
     // --- METHODS -----------------------------
 
+    /// {@code getLine(int)} retrieves from the source file a line specified
+    ///     by parameter {@code int lineNumber}
+    /// @return {@code String}
+    public String getLine(int lineNumber) {
+
+        if (lineNumber < 1) {
+            System.err.println("The specified line number does not exist!");
+            return null;
+        }
+
+        int currentLine = 1;
+        int startIndex = 0;
+
+        for (int i = 0; i <= _source.length(); i++) {
+            boolean atEnd = (i == _source.length());
+
+            // Check for newline or end of source
+            if (atEnd || _source.charAt(i) == '\n') {
+                if (currentLine == lineNumber) {
+                    // Trim trailing carriage return if present (\r\n)
+                    int endIndex = (i > 0 && _source.charAt(i - 1) == '\r') ? i - 1 : i;
+                    return _source.substring(startIndex, endIndex);
+                }
+                currentLine++;
+                startIndex = i + 1; // Next line starts right after the newline
+            }
+        }
+
+        System.err.println("The specified line number does not exist!");
+        return null;
+    }
     /// {@code isAtEnd()} determines if end-of-string has been reached by comparing the
     ///     location of the index pointer to the size of the source string
     /// @return {@code boolean}

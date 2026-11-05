@@ -17,21 +17,10 @@ import com.compiler.scanner.Token;
  * @author Nicholas Griebel
  * @since 1.0
  */
-public class ScannerException extends RuntimeException
+public class ScannerException extends CompilerException
 {
-    private final Token.Location location;
-
-    public ScannerException(String message, Token.Location location)
+    public ScannerException(String message, Token.Location location, int tokenLength)
     {
-        // Define the location in the string where the error occurred
-        this.location = location;
-
-        // Create our message and send it to the super
-        super("%s  --> [Line %d:Char %d]".formatted(message, location.line(), location._char()));
+        super(message, location, tokenLength);
     }
-
-    // Potentially used to hotfix malformed source code during lexing and/or
-    // in-depth error reporting.
-    public int getLine() { return this.location.line();     }
-    public int getChar() { return this.location._char();    }
 }
