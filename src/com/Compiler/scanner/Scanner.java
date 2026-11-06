@@ -34,8 +34,15 @@ import java.util.ArrayList;
  * @see scan()
  */
 public class Scanner {
+
+    /// Scanner's interface between the source String and the token generator logic
     private final SourceReader reader;
 
+    /**
+     * A map of keywords with their associated {@link TokenType} values.
+     * This map is used to provide O(1) lookup times when determining if
+     * a scanned string is an identifier or a keyword.
+     */
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
             // Control Flow
             Map.entry("if", TokenType.IF),
@@ -89,13 +96,25 @@ public class Scanner {
             Map.entry("protected", TokenType.PROTECTED)
     );
 
+    /**
+     * Primary constructor for the {@link Scanner} class.
+     * @param source A String that contains the source to be scanned
+     * @author Nicholas J. Griebel
+     */
     public Scanner(String source)
     {
         // The only thing we need to do is initialize our SourceReader
         reader = new SourceReader(source);
     }
 
-    // TODO: Write Javadoc for scanString
+    /**
+     * Scans a string literal enclosed in double quotes from the source input,
+     * handling escape sequences, multiline boundaries, and ensuring proper termination.
+     *
+     * @return {@link Token} containing the parsed string literal value
+     * @throws ScannerException if an unterminated string, unclosed newline, or
+     *      invalid escape sequence is encountered
+     */
     private Token scanString()
     {
         StringBuilder stringLiteral = new StringBuilder();
@@ -209,7 +228,14 @@ public class Scanner {
         );
     }
 
-    // TODO: Write Javadoc for scanChar
+    /**
+     * Scans a character literal enclosed in single quotes from the source input,
+     * validating its length and ensuring proper termination.
+     *
+     * @return {@link Token} containing the character literal value
+     * @throws ScannerException if the character literal is unterminated or reaches a newline prematurely
+     * @author Nicholas J. Griebel
+     */
     private Token scanChar()
     {
         char literal;
@@ -263,9 +289,16 @@ public class Scanner {
         );
     }
 
-    // TODO: Write Javadoc for scanNumber
-    // WARNING: scanNumber's FLOAT scanning is failing JUnit test.
-    //          Discover why as soon as possible!
+    /**
+     * Scans a numeric literal (integer or floating-point) from the source input
+     * starting with the provided initial digit and consuming subsequent digits,
+     * validating any decimal point structure that may be present.
+     *
+     * @param initial the first digit of the number, already consumed from the reader
+     * @return {@link Token} containing either an integer or floating-point literal value
+     * @throws ScannerException if a malformed floating-point literal is encountered (e.g., a trailing dot without digits)
+     * @author Nicholas J. Griebel
+     */
     private Token scanNumber(char initial)
     {
         StringBuilder literal = new StringBuilder();
@@ -333,7 +366,15 @@ public class Scanner {
         );
     }
 
-    // TODO: Write Javadoc for scanWord
+    /**
+     * Scans an identifier or keyword from the source input, starting with the
+     * provided initial character and consuming subsequent alphanumeric characters
+     * and underscores.
+     *
+     * @param initial the first character of the word, already consumed from the reader
+     * @return a {@link Token} representing either a matched keyword or a general identifier
+     * @author Nicholas J. Griebel
+     */
     private Token scanWord(char initial)
     {
         StringBuilder lexeme = new StringBuilder();
@@ -365,12 +406,14 @@ public class Scanner {
     }
 
     /**
-     * scans a single line of input for valid tokens, identifiers, types & literals.
-     * Valid tokens are deposited into an {@code ArrayList<Token>}
-     * @author Nicholas Griebel
-     * @return {@code List<Token>}
-     * @see scan()
-     * @see ArrayList
+     * Scans a single line of source code from the reader, tokenizing operators,
+     * punctuation, literals, keywords, and identifiers until a newline or the
+     * end of the input stream is reached.
+     *
+     * @return A {@code List<Token>} containing tokens from the scanned line
+     * @throws ScannerException if an unexpected character or malformed token is encountered
+     * @author Nicholas J. Griebel
+     * @see Token
      */
     public List<Token> scanLine() throws ScannerException
     {
@@ -997,18 +1040,56 @@ public class Scanner {
     }
 
     /**
-     * {@code scan()} can be used to scan an entire string of input for valid
+     * {@code scan()} can be used to scan an <i>entire</i> string of input for valid
      * tokens. This method will scan until it reaches an <b>EOF</b>, depositing
      * valid tokens into a token list.
      * @return {@code List<Token>}
      * @see Token
      */
-    public List<Token> scan() throws ScannerException
+    public List<Token> scan()
     {
-        // TEMPORARY -- REMOVE AS SOON AS POSSIBLE
-        return new ArrayList<Token>();
+        // This list contains a concatenation of all lists obtained from scanLine()
+        List<Token> tokenList = new ArrayList<>();
+
+        // Scan the whole file/string
+        while (!reader.isAtEnd())
+        {
+            try
+            {
+                // Continuously append the new tokenLists retrieved
+                // from the scanLine() method
+                tokenList.addAll(scanLine());
+            }
+            catch (ScannerException e)
+            {
+                // Display the exception message
+                System.err.println(e.getMessage());
+
+                // Display enhanced diagnostic messages
+                e.printDiagnostic(reader);
+            }
+
+        }
+
+        // Add the final EOF token
+        tokenList.add(
+                Token.simple(
+                        TokenType.EOF,
+                        null,
+                        new Token.Location(
+                                reader.getCurrentLine(),
+                                reader.getCurrentChar()
+                        )
+                )
+        );
+
+        // Send her home
+        return tokenList;
     }
 
+    /// Used to determine if the end of the source string has been
+    ///     reached. True if at end - false if not.
+    /// @return {@code boolean}
     public boolean isAtEnd() { return reader.isAtEnd(); }
 
     /// The {@code getCurrentLine()} getter has been included to provide
@@ -1020,9 +1101,12 @@ public class Scanner {
     /// @see getCurrentLine()
     public int getCurrentChar() { return reader.getCurrentChar(); }
 
+    /// Returns the index pointer which is used to iterate through the
+    ///     source string.
+    /// @return {@code int}
     public int getCurrentIndex() { return reader.getCurrentIndex(); }
 
-    /// Return a copy of the sourceReader for proper printing of
+    /// Returns a copy of the sourceReader for proper printing of
     /// lines containing exceptions.
     /// @return {@code SourceReader}
     public SourceReader getReader() { return this.reader; }
