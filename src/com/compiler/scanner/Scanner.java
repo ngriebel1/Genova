@@ -37,6 +37,7 @@ public class Scanner {
 
     /// Scanner's interface between the source String and the token generator logic
     private final SourceReader reader;
+    private boolean hadErrors;
 
     /**
      * A map of keywords with their associated {@link TokenType} values.
@@ -416,6 +417,19 @@ public class Scanner {
      * @see Token
      */
     public List<Token> scanLine() throws ScannerException
+    {
+        try
+        {
+            return scanLineInternal();
+        }
+        catch (ScannerException e)
+        {
+            hadErrors = true;
+            throw e;
+        }
+    }
+
+    private List<Token> scanLineInternal() throws ScannerException
     {
         ArrayList<Token> tokenList = new ArrayList<>();
 
@@ -1032,11 +1046,21 @@ public class Scanner {
             if (currentToken != (Token)null)
             {
                 // Only add non-null tokens
-                // (null tokens can represent comments, spaces, etc)
+                // (null tokens can represent comments, spaces, etc.)
                 tokenList.add(currentToken);
             }
         }
         return tokenList;
+    }
+
+    /**
+     * Indicates whether scanning has encountered any lexical errors.
+     *
+     * @return {@code true} if a {@link ScannerException} has occurred
+     */
+    public boolean hasErrors()
+    {
+        return hadErrors;
     }
 
     /**
@@ -1075,7 +1099,7 @@ public class Scanner {
         tokenList.add(
                 Token.simple(
                         TokenType.EOF,
-                        null,
+                        String.valueOf(SourceReader.EOF),
                         new Token.Location(
                                 reader.getCurrentLine(),
                                 reader.getCurrentChar()

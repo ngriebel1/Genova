@@ -1,6 +1,7 @@
 package com.compiler.exceptions;
 
 import com.compiler.scanner.Token;
+import com.compiler.scanner.SourceReader;
 
 /**
  * Thrown by the scanner to indicate a lexical violation or malformed token
@@ -17,10 +18,27 @@ import com.compiler.scanner.Token;
  * @author Nicholas Griebel
  * @since 1.0
  */
-public class ScannerException extends CompilerException
+public class ScannerException extends RuntimeException
 {
+    private final Token.Location location;
+    private final int tokenLength;
+
     public ScannerException(String message, Token.Location location, int tokenLength)
     {
-        super(message, location, tokenLength);
+        super(message + " -> [Line " + location.line() + ", Char " + location._char() + "]");
+        this.location = location;
+        this.tokenLength = tokenLength;
     }
+
+    public void printDiagnostic(SourceReader reader)
+    {
+        System.err.println(reader.getLine(location.line()));
+        System.err.println(
+                  " ".repeat(Math.max(0, location._char() - 1))
+                + "^".repeat(Math.max(1, tokenLength))
+        );
+    }
+
+    public int getLineNumber() { return location.line(); }
+    public int getCharNumber() { return location._char(); }
 }
