@@ -1,19 +1,22 @@
 package com.compiler.scanner;
 
-// project environment imports
-import com.compiler.exceptions.ScannerException;
-
-// TODO: Create Javadoc for the SourceReader class
 public class SourceReader
 {
-    private final String _source;
-    private int _line;
-    private int _char;
-    private int _index;
+    private final String _source;   // Constant
+    private int _line;              // Dynamic
+    private int _char;              // Dynamic
+    private int _index;             // Dynamic
 
     /// Represents End-Of-File character
     public static char EOF = '\0';
 
+    /**
+     * Functions similarly to a character stream—providing methods like {@link #get()},
+     * {@link #peek()}, and {@link isAtEnd()}—but operates directly over an in-memory
+     * source string rather than an underlying {@link java.io.InputStream}.
+     *
+     * @author Nicholas J. Griebel
+     */
     public SourceReader(final String source)
     {
         _source = source;

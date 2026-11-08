@@ -20,13 +20,42 @@ public record Token(TokenType type,
         }
     }
 
-    public static Token complex(TokenType type, String lexeme, Object literal, Location at) {
+    /**
+     * Generates a token that contains an object literal
+     * @param type The type of token being generated. See {@link Token.TokenType}
+     * @param lexeme The raw text in {@code String} form
+     * @param literal The Object literal (For example, if this is an INT_LITERAL token, this
+     *                parameter should be an {@code int} object)
+     * @param at The location where this token resides in the source string. See {@link Token.Location}
+     * @return The generated {@link Token}
+     * @author Nicholas J. Griebel
+     */
+    public static Token complex(TokenType type, String lexeme, Object literal, Location at)
+    {
         return new Token(type, lexeme, literal, at);
     }
-    public static Token simple(TokenType type, String lexeme, Location at) {
+
+    /**
+     * Generates a token that does not contain an object literal
+     * @param type The type of token being generated. See {@link Token.TokenType}
+     * @param lexeme The raw text in {@code String} form
+     * @param at The location where this token resides in the source string. See {@link Token.Location}
+     * @return The generated {@link Token}
+     * @author Nicholas J. Griebel
+     */
+    public static Token simple(TokenType type, String lexeme, Location at)
+    {
         return new Token(type, lexeme, (Object)null, at);
     }
 
+    /**
+     * Returns a string representation of the currently instantiated {@link Token}.
+     *  The representation contains the {@link TokenType}, {@code Lexeme}, and it's
+     *  {@link Token.Location} in the source string.
+     * @return A string representation of this {@link Token}
+     * @author Nicholas J. Griebel
+     * @implNote This method overrides {@link Object}'s generic {@code toString()} method.
+     */
     @Override
     public @NotNull String toString()
     {
@@ -35,6 +64,11 @@ public record Token(TokenType type,
         );
     }
 
+    /**
+     * Getter for the lexeme attribute
+     * @return A {@code String} containing the raw textual value of the currently instantiated token
+     * @author Nicholas J. Griebel
+     */
     public String getLexeme()
     {
         return lexeme;
