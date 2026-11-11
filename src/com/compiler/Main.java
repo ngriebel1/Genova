@@ -20,7 +20,14 @@ public class Main {
     static void main() {
         String testString = (
                 """
-                xCol * yCol % (xCol * yCol)
+                if (x == 33)
+                {
+                    x = 10;
+                }
+                else
+                {
+                    x = 20;
+                }
                 """
         );
 
@@ -32,10 +39,25 @@ public class Main {
             return;
         }
 
-        try {
-            System.out.println(PrettyPrinter.format(parser.parse()));
-        } catch (ParserException ignored) {
+        try
+        {
+            com.compiler.parser.Parser.Stmt parsedStatement;
+            while ((parsedStatement = parser.parse()) != null)
+            {
+                System.out.println("Parsing next statement...");
+                System.out.println(PrettyPrinter.format(parsedStatement));
+            }
+        }
+        catch (ParserException ignored)
+        {
             // Parser.parse() has already printed the source diagnostic.
+            // We don't need to do anything with this exception yet
+        }
+        finally
+        {
+            System.out.println();
+            System.out.println("The Genova Programming Language");
+            System.out.println("Written by Nicholas J. Griebel, (C)2026");
         }
     }
 }

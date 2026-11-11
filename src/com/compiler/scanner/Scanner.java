@@ -150,12 +150,6 @@ public class Scanner {
             char c = reader.get();
 
             if (c == '\n')
-            {
-                Token.Location location = new Token.Location(
-                        reader.getCurrentLine() - 1,
-                        startCharLocation
-                );
-
                 throw new ScannerException(
                         "Unterminated string literal at ",
                         new Token.Location(
@@ -164,7 +158,6 @@ public class Scanner {
                         ),
                         locationBeforeNewline - startCharLocation
                 );
-            }
 
             if (c == '\\')
             {
@@ -191,7 +184,7 @@ public class Scanner {
                     case '"' -> '"';
                     case '\'' -> '\'';
                     default -> throw new ScannerException(
-                            "Invalid Escape Sequence \\" + escape,
+                            "Invalid escape sequence \\" + escape,
                             new Token.Location(startLineLocation, startCharLocation),
                             // Get length of token
                             reader.getCurrentChar() - startCharLocation
@@ -205,7 +198,7 @@ public class Scanner {
         if (reader.isAtEnd())
         {
             throw new ScannerException(
-                    "Unterminated String Literal at ",
+                    "Unterminated string literal at ",
                     new Token.Location(
                             startLineLocation,
                             startCharLocation
@@ -434,12 +427,16 @@ public class Scanner {
         ArrayList<Token> tokenList = new ArrayList<>();
 
         // boolean lineEnded is a flag used to indicate whether we've reached
-        //     the end of a line (where a line ends on '\n')
+        // the end of a line (where a line ends on '\n')
         boolean lineEnded = false;
 
         while (!reader.isAtEnd() && !lineEnded)
         {
             char ch = reader.get();
+            Token.Location tokenStart = new Token.Location(
+                    reader.getCurrentLine(),
+                    reader.getCurrentChar()
+            );
 
             // Determine which token we are looking at
             Token currentToken = switch(ch)
@@ -589,7 +586,7 @@ public class Scanner {
                             reader.get();
                         }
 
-                        yield (Token) null;
+                        yield null;
                         // While loop will expire on next loop
                     }
                     // BLOCK COMMENT
@@ -609,7 +606,7 @@ public class Scanner {
                                     reader.munch();
 
                                     // And yield a null token (comment complete)
-                                    yield (Token)null;
+                                    yield null;
                                 }
                             }
                             else
@@ -1019,19 +1016,19 @@ public class Scanner {
                     else if (reader.isNewline(ch))
                     {
                         lineEnded = true;
-                        yield (Token)null;
+                        yield null;
                     }
                     else if (reader.isSpace(ch))
                     {
                         // No need to handle spaces. Yield a waste token
-                        yield (Token)null;
+                        yield null;
                     }
                     else
                     {
                         // The only other option is an unexpected character or
                         // a malformed token.
                         throw new ScannerException(
-                                "Unexpected character/Malformed Token at",
+                                "Unexpected character or malformed token at",
                                 new Token.Location(
                                         reader.getCurrentLine(),
                                         reader.getCurrentChar()
@@ -1043,14 +1040,38 @@ public class Scanner {
                 }
             };  // End of switch expression
 
-            if (currentToken != (Token)null)
+            if (currentToken != null && isCompoundOperator(currentToken.type()))
+            {
+                currentToken = new Token(
+                        currentToken.type(),
+                        currentToken.lexeme(),
+                        currentToken.literal(),
+                        tokenStart
+                );
+            }
+
+            if (currentToken != null)
             {
                 // Only add non-null tokens
                 // (null tokens can represent comments, spaces, etc.)
                 tokenList.add(currentToken);
             }
         }
+
         return tokenList;
+    }
+
+    private boolean isCompoundOperator(TokenType type)
+    {
+        return switch (type)
+        {
+            case PLUS_PLUS, MINUS_MINUS, ARROW_DASH, PLUS_EQUAL, MINUS_EQUAL,
+                    STAR_EQUAL, SLASH_EQUAL, PERCENT_EQUAL, AMPERSAND_EQUAL,
+                    BAR_EQUAL, CARET_EQUAL, LESS_LESS_EQUAL, GREATER_GREATER_EQUAL,
+                    EQUAL_EQUAL, NOT_EQUAL, LESS_EQUAL, GREATER_EQUAL, AND, OR,
+                    DOUBLE_COLON, ARROW_EQUAL -> true;
+            default -> false;
+        };
     }
 
     /**

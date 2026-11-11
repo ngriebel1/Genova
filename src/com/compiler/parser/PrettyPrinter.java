@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Renders an expression tree as a top-down, textbook-style tree.
+ * Renders expression and statement trees as top-down, textbook-style trees.
  * @author Github Copilot
  */
 public final class PrettyPrinter {
@@ -15,6 +15,38 @@ public final class PrettyPrinter {
 
     public static String format(Parser.Expr expression) {
         return String.join(System.lineSeparator(), layout(expression).lines());
+    }
+
+    public static String format(Parser.Stmt statement) {
+        return String.join(System.lineSeparator(), layout(statement).lines());
+    }
+
+    private static TreeLayout layout(Parser.Stmt statement) {
+        if (statement instanceof Parser.Stmt.Block block) {
+            List<TreeLayout> children = block.statements().stream()
+                    .map(PrettyPrinter::layout)
+                    .toList();
+            return layoutNode("Block", children);
+        }
+
+        if (statement instanceof Parser.Stmt.AssignmentStatement assignment) {
+            return layoutNode(
+                    "AssignmentStatement",
+                    List.of(layout(assignment.assignment()))
+            );
+        }
+
+        if (statement instanceof Parser.Stmt.IfStatement ifStatement) {
+            List<TreeLayout> children = new ArrayList<>();
+            children.add(layoutNode("Condition", List.of(layout(ifStatement.condition()))));
+            children.add(layoutNode("Then", List.of(layout(ifStatement.ifBody()))));
+            if (ifStatement.elseBody() != null) {
+                children.add(layoutNode("Else", List.of(layout(ifStatement.elseBody()))));
+            }
+            return layoutNode("IfStatement", children);
+        }
+
+        throw new IllegalStateException("Unknown statement type: " + statement.getClass());
     }
 
     private static TreeLayout layout(Parser.Expr expression) {
@@ -41,7 +73,7 @@ public final class PrettyPrinter {
         }
 
         if (expression instanceof Parser.Expr.Assign assign) {
-            return layoutBinary("=", assign.target(), assign.value());
+            return layoutBinary(assign.Assignop().lexeme(), assign.target(), assign.value());
         }
 
         if (expression instanceof Parser.Expr.Binary binary) {
@@ -49,6 +81,61 @@ public final class PrettyPrinter {
         }
 
         throw new IllegalStateException("Unknown expression type: " + expression.getClass());
+    }
+
+    private static TreeLayout layoutNode(String label, List<TreeLayout> children) {
+        if (children.isEmpty()) {
+            return new TreeLayout(List.of(label), label.length() / 2, label.length());
+        }
+
+        int[] offsets = new int[children.size()];
+        int nextOffset = 0;
+        for (int i = 0; i < children.size(); i++) {
+            offsets[i] = nextOffset;
+            nextOffset += children.get(i).width() + 4;
+        }
+
+        int firstRoot = offsets[0] + children.getFirst().root();
+        int lastIndex = children.size() - 1;
+        int lastRoot = offsets[lastIndex] + children.getLast().root();
+        int root = (firstRoot + lastRoot) / 2;
+        int leftPadding = Math.max(0, label.length() / 2 - root);
+        int width = nextOffset - 4 + leftPadding;
+        root += leftPadding;
+        width = Math.max(width, root - label.length() / 2 + label.length());
+
+        List<String> lines = new ArrayList<>();
+        lines.add(place(label, width, root - label.length() / 2));
+        lines.add(place("|", width, root));
+
+        char[] branches = blankLine(width);
+        int leftmostRoot = firstRoot + leftPadding;
+        int rightmostRoot = lastRoot + leftPadding;
+        Arrays.fill(branches, Math.min(root, leftmostRoot), Math.max(root, rightmostRoot) + 1, '-');
+        branches[root] = '+';
+        for (int i = 0; i < children.size(); i++) {
+            branches[offsets[i] + children.get(i).root() + leftPadding] = '+';
+        }
+        lines.add(new String(branches));
+
+        char[] childBranches = blankLine(width);
+        for (int i = 0; i < children.size(); i++) {
+            childBranches[offsets[i] + children.get(i).root() + leftPadding] = '|';
+        }
+        lines.add(new String(childBranches));
+
+        int childStartRow = lines.size();
+        for (int i = 0; i < children.size(); i++) {
+            appendPaddedAt(
+                    lines,
+                    children.get(i).lines(),
+                    offsets[i] + leftPadding,
+                    width,
+                    childStartRow
+            );
+        }
+
+        return new TreeLayout(lines, root, width);
     }
 
     private static TreeLayout layoutBinary(String label, Parser.Expr leftExpression, Parser.Expr rightExpression) {
