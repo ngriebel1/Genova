@@ -124,10 +124,13 @@ public class SourceReader
             ++_line;
             _char = 0;
         }
+        else
+        {
+            ++_char;
+        }
 
         // Move the position pointer forwards, "getting" the previous char
         ++_index;
-        ++_char;
 
         return c;
     }

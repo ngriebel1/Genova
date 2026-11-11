@@ -16,7 +16,27 @@ public class Parser {
         this.sourceReader = sourceReader;
     }
 
-    public sealed interface Expr permits Expr.Variable, Expr.Assign, Expr.Binary, Expr.Literal, Expr.Grouping {
+    /**
+     * Statement types used in the parser
+     * Similar to using visitor style statement types
+     * @author Nicholas J. Griebel
+     */
+    public sealed interface Stmt
+            permits Stmt.Block, Stmt.AssignmentStatement, Stmt.IfStatement {
+
+        record Block(List<Stmt> statements) implements Stmt { }
+        record AssignmentStatement(Expr.Assign assignment) implements Stmt { }
+        record IfStatement(Expr condition, Stmt ifBody, Stmt elseBody) implements Stmt { }
+    }
+
+    /**
+     * Expression types used in the parser
+     * Similar to using visitor style expression types
+     * @author Nicholas J. Griebel
+     */
+    public sealed interface Expr permits
+            Expr.Variable, Expr.Assign, Expr.Binary,
+            Expr.Literal, Expr.Grouping {
         default String format() {
             return PrettyPrinter.format(this);
         }
@@ -25,79 +45,301 @@ public class Parser {
         record Variable(Token name) implements Expr { }
 
         // Standard math (Parses mathematical expressions and grouping of mathematical expressions).
-        record Assign(Expr.Variable target, Expr value) implements Expr { }
+        record Assign(Expr.Variable target, Token Assignop, Expr value) implements Expr { }
         record Binary(Expr left, Token operator, Expr right) implements Expr { }
         record Literal(Object value) implements Expr { }
         record Grouping(Expr expression) implements Expr { }
     }
 
+    /**
+     * Primary public parse interface -- Used to start the parsing process
+     * @return {@code Stmt}
+     * @author Nicholas J. Griebel
+     */
+    public Stmt parse() {
+        try {
+            if (tokenStream.isAtEnd()) {
+                // Return a null expression to indicate end of tokenList
+                return null;
+            }
 
-    public Expr parseExpression() {
-        return assignment();
-    }
+            // Or return a parsed statement tree
+            return parseStatement();
 
-    public Expr parse() {
-        try
-        {
-            return parseExpression();
-        }
-        catch (ParserException e)
-        {
+        } catch (ParserException e) {
+            // Display exception diagnostics
             System.err.println(e.getMessage());
             e.printDiagnostic(sourceReader);
             throw e;
         }
     }
 
-    private Expr assignment() {
-        // Always start with higher precedence parsing
-        Expr expression = addition();
+    /**
+     * Statement -> Block | AssignmentStatement | IfStatement | CallStatement | ...
+     * @return {@code Stmt}
+     * @author Nicholas J. Griebel
+     */
+    public Stmt parseStatement() {
+        if (tokenStream.match(Token.TokenType.LEFT_BRACE)) {
+            return parseBlock();
+        }
 
-        // Make sure the next token is an EQUAL
-        if (tokenStream.match(Token.TokenType.EQUAL))
+        if (tokenStream.match(Token.TokenType.IF)) {
+            return parseIf();
+        }
+
+        // Fallback on assignment statements
+        return parseAssignmentStatement();
+    }
+
+    /**
+     * IfStatement -> IF "(" Expression ")" Statement (ElseStatement)?
+     * @return {@code Stmt.IfStatement}
+     * @author Nicholas J. Griebel
+     */
+    private Stmt parseIf() {
+        // Get the token representing the start of the if statement
+        Token statementStart = tokenStream.previous();
+
+        // Match and consume LEFT_PAREN or throw an exception
+        if (!tokenStream.match(Token.TokenType.LEFT_PAREN))
+            throw new ParserException(
+                    "Expected '(', got '" + tokenStream.peek().lexeme() + "'",
+                    statementStart,
+                    tokenStream.peek()
+            );
+
+        // Get the if condition
+        Expr condition = parseExpression();
+
+        // match and consume RIGHT_PAREN or throw an exception
+        if (!tokenStream.match(Token.TokenType.RIGHT_PAREN))
+            throw new ParserException(
+                    "Unmatched parenthesis: Expected ')', got '" + tokenStream.peek().lexeme() + "'",
+                    statementStart,
+                    tokenStream.peek()
+            );
+
+        // Get the if block (then)
+        Stmt ifBlock = parseStatement();
+        Stmt elseBlock = null;
+
+        // Is there an else part?
+        if (tokenStream.match(Token.TokenType.ELSE))
         {
-            Token equals = tokenStream.previous();
+            // If so, assign its block to elseBlock
+            elseBlock = parseStatement();
+        }
 
-            // Our LHS expression was not a variable. Throw an exception!
-            if (!(expression instanceof Expr.Variable))
-            {
-                throw new ParserException("Invalid assignment syntax", equals, equals.lexeme().length());
+        // Put the if statement onto the tree
+        return new Stmt.IfStatement(
+            condition, ifBlock, elseBlock
+        );
+    }
+
+    /**
+     * Block -> "{" Statement* "}"
+     *
+     * @return A {@code List<Stmt>} of statements included in the block
+     * @author Nicholas J. Griebel
+     */
+    private Stmt parseBlock() {
+        // Get the opening brace token for exception reporting
+        Token openingBrace = tokenStream.previous();
+        List<Stmt> statements = new ArrayList<>();
+
+        // Continue to collect and add statements to the statements list
+        // until we reach our outer brace.
+        while (!tokenStream.isAtEnd() && !tokenStream.check(Token.TokenType.RIGHT_BRACE)) {
+            statements.add(parseStatement());
+        }
+
+        // If the while loop was broken by an EOF,
+        if (tokenStream.isAtEnd())
+            throw new ParserException(
+                    "Unclosed block; Expected '}' before end of input.",
+                    openingBrace,
+                    openingBrace.lexeme().length()
+            );
+
+        // Consume the trailing right brace
+        tokenStream.consume(Token.TokenType.RIGHT_BRACE, "Expected '}', got " + tokenStream.peek().lexeme());
+
+        // Add the block statement to the tree
+        return new Stmt.Block(
+                statements
+        );
+    }
+
+    /**
+     * AssignmentStatement -> IDENTIFIER Assignop Assignment ";"
+     *
+     * @return Stmt.AssignmentStatement
+     * @author Nicholas J. Griebel
+     */
+    private Stmt parseAssignmentStatement() {
+        // Get our starting statement token for exception reporting
+        Token statementStart = tokenStream.peek();
+        // Retrieve our assignment expression
+        Expr expression = assignment();
+        // Get our ending expression token for exception reporting (range-based)
+        Token statementEnd = tokenStream.previous();
+
+        if (expression instanceof Expr.Assign assign) {
+            if (!(tokenStream.match(Token.TokenType.SEMICOLON))) {
+                String found = tokenStream.isAtEnd()
+                        ? "end of input"
+                        : "'" + tokenStream.peek().lexeme() + "'";
+                Token.Location insertionPoint = new Token.Location(
+                        statementEnd.at().line(),
+                        statementEnd.at()._char() + statementEnd.lexeme().length()
+                );
+                throw new ParserException(
+                        "Expected semicolon before " + found,
+                        insertionPoint,
+                        0
+                );
             }
 
-            // Cast our expression to the correct Expr.Variable record, and
-            // get our RHS value (which could be another assignment, as in
-            // a = b = c ). Return the resulting Assign Expression.
-            return new Expr.Assign((Expr.Variable)expression, assignment());
+            return new Stmt.AssignmentStatement(
+                    assign
+            );
+        }
+
+        throw new ParserException(
+                "Incorrect statement syntax at",
+                statementStart,
+                statementEnd
+        );
+    }
+
+    /**
+     * Expression -> Assignment
+     * @return {@code Expr}
+     * @author Nicholas J. Griebel
+     */
+    public Expr parseExpression() {
+        return assignment();
+    }
+
+    /**
+     * Assignment   -> IDENTIFIER Assignop Assignment | Addition
+     * Assignop     -> "=" | "+=" | "-=" | "*=" | "/=" | "%="
+     * @return  {@code Expr.Assign }
+     * @author Nicholas J. Griebel
+     */
+    private Expr assignment() {
+        Token expressionStart = tokenStream.peek();
+
+        // Always start with higher precedence parsing
+        Expr expression = equality();
+        Token expressionEnd = tokenStream.previous();
+
+        // Make sure the next token is an Assignop
+        if (tokenStream.match(
+                Token.TokenType.EQUAL, Token.TokenType.PLUS_EQUAL,
+                Token.TokenType.MINUS_EQUAL, Token.TokenType.STAR_EQUAL,
+                Token.TokenType.SLASH_EQUAL, Token.TokenType.PERCENT_EQUAL
+            )
+        ) {
+            // Get the assignment operator (Check header comment to see all valid Assignops)
+            Token assignop = tokenStream.previous();
+
+            // Our LHS expression was not a variable. Throw an exception!
+            if (!(expression instanceof Expr.Variable variable)) {
+                throw new ParserException(
+                        "Invalid assignment syntax at",
+                        expressionStart,
+                        expressionEnd);
+            }
+
+            // Return our valid assignment to the tree
+            return new Expr.Assign(variable, assignop, assignment());
         }
 
         return expression;
     }
 
+    /**
+     * Equality     -> Relational (Equalityop Relational)*
+     * Equalityop   -> "==" | "!="
+     * @return {@code Expr.Binary }
+     * @author Nicholas J. Griebel
+     */
+    private Expr equality() {
+        Expr expression = relational();                 // Parse LHS operand
+
+        while (tokenStream.match(Token.TokenType.EQUAL_EQUAL, Token.TokenType.NOT_EQUAL)) {
+            Token operator = tokenStream.previous();    // Get our equality operator
+            Expr right = relational();                  // Parse RHS operand
+
+            // Create our new expression
+            expression = new Expr.Binary(
+                    expression,
+                    operator,
+                    right
+            );
+        }
+
+        // And send 'er home
+        return expression;
+    }
+
+    /**
+     * Relational       -> Addition (Relationalop Addition)*
+     * Relationalop     -> ">" | ">=" | "<" | "<="
+     * @return {@code Expr.Binary }
+     * @author Nicholas J. Griebel
+     */
+    private Expr relational() {
+        Expr expression = addition();               // Parse LHS operand
+
+        while (tokenStream.match(
+                Token.TokenType.GREATER,
+                Token.TokenType.GREATER_EQUAL,
+                Token.TokenType.LESS,
+                Token.TokenType.LESS_EQUAL)) {
+            Token operator = tokenStream.previous(); // Get our relational operator
+            Expr right = addition();                 // Parse our RHS operand
+
+            expression = new Expr.Binary(
+                    expression,
+                    operator,
+                    right
+            );
+        }
+
+        return expression;
+    }
+
+    /**
+     * Addition -> Term (Addop Term)*
+     * @return {@code Expr.Binary }
+     * @author Nicholas J. Griebel
+     */
     private Expr addition() {
         // Always start with higher precedence parsing
         Expr expression = term();
 
-        // Continue parsing additions as long as we keep encountering TokenType.PLUS
-        // or TokenType.MINUS. Inside the loop, we are parsing all available RHS
-        // expressions: For example 3 + 4 + 5 - 6;
-        // 3 is our LHS value which was parsed using our term() call, and + 4,
-        // + 5, and - 6 are parsed in this loop
         while (tokenStream.match(Token.TokenType.PLUS, Token.TokenType.MINUS)) {
-            // Get the math operator from the token stream
             Token operator = tokenStream.previous();
-            // Parse the term on the right side of the operator
             Expr right = term();
-
-            // Note that in this assignment, instead of visualizing a reassignment,
-            // visualizing an addition to the tree is more valid. We are adding what
-            // we just parsed to the existing AST tree.
-            expression = new Expr.Binary(expression, operator, right);
+            expression = new Expr.Binary(
+                    expression,
+                    operator,
+                    right
+            );
         }
 
         // Return the node
         return expression;
     }
 
+    /**
+     * Term -> Factor (Mulop Factor)*
+     * @return {@code Expr.Binary}
+     * @author Nicholas J. Griebel
+     */
     private Expr term() {
         Expr expression = factor();
 
@@ -105,42 +347,28 @@ public class Parser {
         while (tokenStream.match(Token.TokenType.STAR, Token.TokenType.SLASH, Token.TokenType.PERCENT)) {
             Token operator = tokenStream.previous();
             Expr right = factor();
-            expression = new Expr.Binary(expression, operator, right);
+            expression = new Expr.Binary(
+                    expression,
+                    operator,
+                    right
+            );
         }
 
-        // Return the expression we've created. Note: There are two potential
-        // paths here.
-        //
-        // 1: Our first path is one where there was no available
-        //      MUL, DIV or MOD expressions to parse. In this case,
-        //      we simply pass the expression that we got from factor()
-        //      back down to addition(), which itself is still working through
-        //      all possible RHS expressions. In this case, we are probably
-        //      an addition or subtraction where we are simply returning
-        //      a literal here.
-        // 2: Our second path is one where a MUL, DIV, or MOD (or multiple)
-        //      was/were available. In this case, the previous while statement
-        //      handles all possible RHS expressions at this precedence level, adds
-        //      the expressions to the tree, and then passes progress so far back down
-        //      to addition(). It will loop again if we encounter an add/sub after this,
-        //      followed by another mul/div/mod
-        //
-        // NOTE: The above thoughts are mine, but do not exactly represent what is happening.
-        //      A better way to understand it would be:
-        //          `Return the factor or multiplication/division/modulo expression built here.
-        //          addition() uses this as a term, either as its initial expression or as
-        //          the right-hand side of a + or -. `
         return expression;
     }
 
+    /**
+     * Factor -> "(" Expression ")" | Number | Identifier
+     * @return {@code Expr.Grouping} | {@code Expr.Literal} | {@code Expr.Variable}
+     * @author Nicholas J. Griebel
+     */
     private Expr factor() {
         // Are we an identifier?
-        if (tokenStream.match(Token.TokenType.IDENTIFIER))
-        {
+        if (tokenStream.match(Token.TokenType.IDENTIFIER)) {
             return new Expr.Variable(tokenStream.previous());
         }
 
-        // Are we a leaf? Either float or integer?
+        // Are we a literal?
         if (tokenStream.match(Token.TokenType.INTEGER_LITERAL,
                 Token.TokenType.FLOAT_LITERAL)) {
             // If so, an Expr.Literal belongs here.
@@ -149,10 +377,7 @@ public class Parser {
 
         // Otherwise, are we a grouping?
         if (tokenStream.match(Token.TokenType.LEFT_PAREN)) {
-            // We need a new branch -- grow it using parseExpression which
-            // starts a new Expression branch. Then, the only thing we need
-            // to be worried about is the closing parenthesis and returning
-            // the expression to the caller
+            // Get our inner expression
             Expr expression = parseExpression();
 
             // Look for the closing parenthesis
@@ -164,12 +389,12 @@ public class Parser {
             return new Expr.Grouping(expression);
         }
 
-        // If we fell through it means we didn't find the right token.
-        // There must be a syntactical mistake here. Throw an exception
+        // We didn't get the expected token --
         Token unexpected = tokenStream.peek();
         String found = unexpected.type() == Token.TokenType.EOF
                 ? "end of input"
                 : "'" + unexpected.lexeme() + "'";
+
         throw new ParserException(
                 "Expected an identifier, number, or '(' but found " + found,
                 unexpected,
