@@ -1,5 +1,6 @@
 package com.compiler.parser;
 
+import com.compiler.scanner.Scanner;
 import com.compiler.scanner.Token;
 import com.compiler.exceptions.ParserException;
 import com.compiler.scanner.SourceReader;
@@ -22,13 +23,53 @@ public class Parser {
      * @author Nicholas J. Griebel
      */
     public sealed interface Stmt
-            permits Stmt.Block, Stmt.AssignmentStatement, Stmt.IfStatement {
+            permits Stmt.Block,         Stmt.AssignmentStatement,
+                    Stmt.IfStatement,   Stmt.VariableDeclarationStatement,
+                    Stmt.FunctionDeclarationStatement {
 
-        record Block(List<Stmt> statements) implements Stmt { }
+        record Block(List<Stmt> statements) implements Stmt {
+            public Block {
+                // Make an immutable copy of the statements list
+                statements = List.copyOf(statements);
+            }
+        }
         record AssignmentStatement(Expr.Assign assignment) implements Stmt { }
         record IfStatement(Expr condition, Stmt ifBody, Stmt elseBody) implements Stmt { }
+        record Parameter(Token type, int ptrDepth, Token name, Expr defaultValue) { }
+
+        record VariableDeclarationStatement(
+                List<Token> modifiers,
+                Token type,
+                int ptrDepth,
+                Token name,
+                Expr value
+        ) implements Stmt {
+            public VariableDeclarationStatement {
+                // Make an immutable copy of the modifiers list
+                modifiers = List.copyOf(modifiers);
+            }
+        }
+        record FunctionDeclarationStatement(
+                List<Token> modifiers,
+                Token type,
+                int ptrDepth,
+                Token name,
+                List<Parameter> parameters,
+                FunctionBody body
+        ) implements Stmt{
+            public FunctionDeclarationStatement {
+                // Make an immutable copy of the modifiers and parameters lists
+                modifiers = List.copyOf(modifiers);
+                parameters = List.copyOf(parameters);
+            }
+        }
     }
 
+    public sealed interface FunctionBody
+            permits FunctionBody.BlockBody, FunctionBody.ExpressionBody {
+        record BlockBody(Stmt.Block block) implements FunctionBody { }
+        record ExpressionBody(Expr expression) implements FunctionBody { }
+    }
     /**
      * Expression types used in the parser
      * Similar to using visitor style expression types
@@ -56,16 +97,23 @@ public class Parser {
      * @return {@code Stmt}
      * @author Nicholas J. Griebel
      */
-    public Stmt parse() {
+    public List<Stmt> parse() {
         try {
             if (tokenStream.isAtEnd()) {
                 // Return a null expression to indicate end of tokenList
                 return null;
             }
 
-            // Or return a parsed statement tree
-            return parseStatement();
+            List<Stmt> parsedStatements = new ArrayList<Stmt>();
 
+            while (!tokenStream.isAtEnd())
+            {
+                // Continue adding parsed statements to the
+                // list until we reach the EOF token
+                parsedStatements.add(parseStatement());
+            }
+
+            return parsedStatements;
         } catch (ParserException e) {
             // Display exception diagnostics
             System.err.println(e.getMessage());
@@ -80,16 +128,332 @@ public class Parser {
      * @author Nicholas J. Griebel
      */
     public Stmt parseStatement() {
+        // Block
         if (tokenStream.match(Token.TokenType.LEFT_BRACE)) {
             return parseBlock();
         }
 
+        // If
         if (tokenStream.match(Token.TokenType.IF)) {
             return parseIf();
         }
 
-        // Fallback on assignment statements
+        // Declaration
+        if (isType() != null)
+        {
+            return parseDeclaration();
+        }
+
+        // Assignment
         return parseAssignmentStatement();
+    }
+
+    /**
+     * DeclarationStatement -> Modifier* Type IDENTIFIER ( FunctionTail | VariableTail )
+     * Modifier             -> CONST | STATIC | DYNAMIC
+     * FunctionTail         -> "(" Parameters? ")" ( Block | "-> Expression )
+     * Parameters           -> Parameter ("," Parameter)*
+     * Parameter            -> Type IDENTIFIER ("=" Expression)?
+     * VariableTail         -> ("=" Expression)? ";"
+     * Type                 -> BaseType Pointer*
+     * BaseType             -> CHAR | INT | FLOAT | DOUBLE | LONG | STRING | VOID | BOOL
+     * Pointer              -> "*"
+     *
+     * @return  {@code Stmt}
+     * @author Nicholas J. Griebel
+     */
+    private Stmt parseDeclaration() {
+        Token first = tokenStream.previous();
+        List<Token> modifiers = new ArrayList<>();
+        int ptrDepth = 0;
+        Token type = null;
+        Token name = null;
+
+        if (isModifier(first.type())) {
+            // Add the first modifier
+            modifiers.add(first);
+
+            // Then get *the rest*
+            while (tokenStream.match(
+                    Token.TokenType.CONST,
+                    Token.TokenType.STATIC,
+                    Token.TokenType.DYNAMIC
+            )) {
+                // We must be able to handle multiple modifiers
+                // for modifier chains such as static const
+                modifiers.add(tokenStream.previous());
+            }
+        }
+
+        type = isModifier(first.type())
+                ? isType()
+                : first;
+
+        // type is null if no valid type was found in isType()
+        if (type == null) {
+            throw new ParserException(
+                    "Unknown type name at",
+                    tokenStream.previous(),
+                    tokenStream.previous().lexeme().length()
+            );
+        }
+
+        // Get a pointer depth count (how many '*' are present), and get
+        // the variable identifier
+        if (tokenStream.match(Token.TokenType.STAR))
+        {
+            do {
+                ++ptrDepth;
+            } while (tokenStream.match(Token.TokenType.STAR));
+
+            name = checkIdentifier();
+        }
+        else
+        {
+            if (tokenStream.match(Token.TokenType.IDENTIFIER))
+            {
+                // This is not a pointer, but we got a valid identifier
+                name = tokenStream.previous();
+            }
+            else
+            {
+                // it wasn't a valid identifier
+                throw new ParserException(
+                        "Expected identifier, got '" + tokenStream.peek().lexeme() + "' at",
+                        tokenStream.peek(),
+                        tokenStream.peek().lexeme().length()
+                );
+            }
+        }
+
+        // Determine if we're a function declaration or a variable declaration
+        if (tokenStream.match(Token.TokenType.LEFT_PAREN)) {
+            return parseFunctionTail(modifiers, type, ptrDepth, name);
+        }
+        else if (tokenStream.match(Token.TokenType.EQUAL, Token.TokenType.SEMICOLON)) {
+            return parseVariableTail(modifiers, type, ptrDepth, name);
+        }
+
+        // Neither path was acceptable - We've got a
+        // malformed syntax on our hands.
+        throw new ParserException(
+                "Invalid declaration syntax. Expected '(', '=' or ';' - Got '" + tokenStream.peek().lexeme() + "'",
+                first,
+                tokenStream.peek()
+        );
+    }
+
+    /**
+     * FunctionTail -> "(" Parameters? ")" ( Block | ARROW_DASH Expression ";" )
+     * @param modifiers A {@code List<Token>} of applicable variable/return type modifiers
+     * @param type A {@code Token} containing the desired type for declaration
+     * @param ptrDepth An {@code int} representing the depth of pointer declared (i.e int *x = 1, int **x = 2, etc.)
+     * @param name The desired name of the variable to be declared. Type {@code Token}
+     * @return A {@code Stmt} representing a functions body
+     */
+    private Stmt parseFunctionTail(List<Token> modifiers, Token type, int ptrDepth, Token name)
+    {
+        List<Stmt.Parameter> parameters = parseParameters();
+        tokenStream.consume(Token.TokenType.RIGHT_PAREN, "Expected ')' after parameters");
+
+        // Are we...
+        //    1: A standard block body
+        // or 2: An arrow shortcut?
+        FunctionBody body;
+        if (tokenStream.match(Token.TokenType.LEFT_BRACE))
+        {
+            body = new FunctionBody.BlockBody((Stmt.Block)parseBlock());
+        }
+        else if (tokenStream.match(Token.TokenType.ARROW_DASH))
+        {
+            Expr expression = parseExpression();
+            tokenStream.consume(Token.TokenType.SEMICOLON, "Expected ';' after expression");
+            body = new FunctionBody.ExpressionBody(expression);
+        }
+        else
+        {
+            Token unexpected = tokenStream.peek();
+
+            String found = unexpected.type() == Token.TokenType.EOF
+                    ? "end of input"
+                    : "'" + unexpected.lexeme() + "'";
+
+            throw new ParserException(
+                    "Expected '{' or '->', got " + found,
+                    unexpected,
+                    unexpected.lexeme().length()
+            );
+        }
+
+        return new Stmt.FunctionDeclarationStatement(
+                modifiers, type, ptrDepth, name, parameters, body
+        );
+    }
+
+    private List<Stmt.Parameter> parseParameters()
+    {
+        List<Stmt.Parameter> parameters = new ArrayList<>();
+
+        if (tokenStream.check(Token.TokenType.RIGHT_PAREN))
+        {
+            return parameters; // Returning empty list on empty params
+        }
+
+        do
+        {
+            parameters.add(parseParameter());
+        } while (tokenStream.match(Token.TokenType.COMMA));
+
+        return parameters;
+    }
+
+    private Stmt.Parameter parseParameter()
+    {
+        Token type;
+        int ptrDepth = 0;
+        Token name;
+        Expr defaultValue = null;
+
+        // Get the type name, throw exception if it's null (bad syntax)
+        if ((type = isType()) == null)
+        {
+            throw new ParserException(
+                    "Missing type declaration at",
+                    tokenStream.peek(),
+                    tokenStream.peek().lexeme().length()
+            );
+        }
+
+        // Get pointer declarations
+        while (tokenStream.match(Token.TokenType.STAR))
+        {
+            ++ptrDepth;
+        }
+
+        if (!(tokenStream.match(Token.TokenType.IDENTIFIER)))
+        {
+            throw new ParserException(
+                    "Invalid/Missing identifier at",
+                    tokenStream.peek(),
+                    tokenStream.peek().lexeme().length()
+            );
+        }
+
+        // Get the identifier
+        name = tokenStream.previous();
+
+        // Get the optional default value
+        if (tokenStream.match(Token.TokenType.EQUAL))
+        {
+            defaultValue = parseExpression();
+        }
+
+        return new Stmt.Parameter(
+                type, ptrDepth, name, defaultValue
+        );
+    }
+
+    /**
+     *
+     * @param modifiers A {@code List<Token>} of valid variable modifiers (E.G static const)
+     * @param type A {code Token} containing the desired type of the variable to be declared
+     * @param ptrDepth An {code int} representing the depth of pointer declared (e.g. int *x;(1), int **x;(2))
+     * @param name The desired name of the variable to be declared. Type {@code Token}
+     * @return A {@code Stmt} representing a variable declaration body (E.G int *x = 33; or int *y)
+     */
+    private Stmt parseVariableTail(List<Token> modifiers, Token type, int ptrDepth, Token name)
+    {
+        // Declaration with definition
+        if (tokenStream.previous().type() == Token.TokenType.EQUAL)
+        {
+            // Get the definition expression
+            Expr expression = parseExpression();
+
+            tokenStream.consume(Token.TokenType.SEMICOLON, "Missing semicolon at");
+
+            return new Stmt.VariableDeclarationStatement(
+                    modifiers, type, ptrDepth, name, expression
+            );
+        }
+
+        // Declaration without definition
+        else if (tokenStream.previous().type() == Token.TokenType.SEMICOLON)
+        {
+            return new Stmt.VariableDeclarationStatement(
+                    modifiers, type, ptrDepth, name, null
+            );
+        }
+
+        Token unexpected = tokenStream.peek();
+
+        String found = unexpected.type() == Token.TokenType.EOF
+                ? "end of input"
+                : "'" + unexpected.lexeme() + "'";
+
+        throw new ParserException(
+                "Expected '=' or ';', got " + found,
+                unexpected,
+                unexpected.lexeme().length()
+        );
+    }
+
+    Token checkIdentifier()
+    {
+        if (!(tokenStream.match(Token.TokenType.IDENTIFIER))) {
+            // No identifier found -- Is it a reserved word?
+            if (Scanner.KEYWORDS.containsValue(tokenStream.peek().type())) {
+                throw new ParserException(
+                        "Invalid identifier (Reserved word) at",
+                        tokenStream.peek(),
+                        tokenStream.peek().lexeme().length()
+                );
+            }
+
+            throw new ParserException(
+                    "Expected identifier, got '" + tokenStream.peek().lexeme() + "' at",
+                    tokenStream.peek(),
+                    tokenStream.peek().lexeme().length()
+            );
+        }
+
+        return tokenStream.previous();
+    }
+
+    private Token isType()
+    {
+        // Are we a valid type?
+        if (tokenStream.match(
+                Token.TokenType.CHAR,
+                Token.TokenType.INT,
+                Token.TokenType.DOUBLE,
+                Token.TokenType.FLOAT,
+                Token.TokenType.BOOL,
+                Token.TokenType.STRING,
+                Token.TokenType.AUTO,
+                Token.TokenType.LONG,
+                Token.TokenType.VOID,
+                Token.TokenType.CONST,
+                Token.TokenType.STATIC,
+                Token.TokenType.DYNAMIC
+        ))
+        {
+            // Return it if it's a valid type
+            return tokenStream.previous();
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine whether a given TokenType is a variable type modifier
+     * @return A null token if not modifier, otherwise returns the matched token
+     * @author Nicholas J. Griebel
+     */
+    private boolean isModifier(Token.TokenType t)
+    {
+        return t == Token.TokenType.CONST
+                || t == Token.TokenType.DYNAMIC
+                || t == Token.TokenType.STATIC;
     }
 
     /**
@@ -143,7 +507,7 @@ public class Parser {
      * @return A {@code List<Stmt>} of statements included in the block
      * @author Nicholas J. Griebel
      */
-    private Stmt parseBlock() {
+    private Stmt.Block parseBlock() {
         // Get the opening brace token for exception reporting
         Token openingBrace = tokenStream.previous();
         List<Stmt> statements = new ArrayList<>();

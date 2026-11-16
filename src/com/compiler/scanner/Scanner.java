@@ -44,7 +44,7 @@ public class Scanner {
      * This map is used to provide O(1) lookup times when determining if
      * a scanned string is an identifier or a keyword.
      */
-    private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
+    public static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
             // Control Flow
             Map.entry("if", TokenType.IF),
             Map.entry("else", TokenType.ELSE),
@@ -71,6 +71,7 @@ public class Scanner {
             Map.entry("string", TokenType.STRING),
             Map.entry("char", TokenType.CHAR),
             Map.entry("bool", TokenType.BOOL),
+            Map.entry("long", TokenType.LONG),
             Map.entry("void", TokenType.VOID),
 
             // Data Structures & Modifiers

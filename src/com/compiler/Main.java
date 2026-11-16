@@ -4,6 +4,8 @@ import com.compiler.exceptions.ParserException;
 import com.compiler.parser.Parser;
 import com.compiler.parser.PrettyPrinter;
 import com.compiler.scanner.Scanner;
+import java.util.List;
+import java.util.ArrayList;
 
 
 /**
@@ -20,13 +22,19 @@ public class Main {
     static void main() {
         String testString = (
                 """
-                if (x == 33)
-                {
-                    x = 10;
-                }
-                else
-                {
-                    x = 20;
+                static const int func() {
+                    static int x = 33;
+                
+                    if (x > 10) {
+                        if (x == 33)
+                        {
+                            // How'd X get larger than 10? get back here...
+                            x = 34;
+                        }
+                    }
+                    else {
+                        x = 10;
+                    }
                 }
                 """
         );
@@ -41,11 +49,14 @@ public class Main {
 
         try
         {
-            com.compiler.parser.Parser.Stmt parsedStatement;
-            while ((parsedStatement = parser.parse()) != null)
+            List<Parser.Stmt> parsedStatements = new ArrayList<Parser.Stmt>();
+            parsedStatements = parser.parse();
+
+            for (var statement : parsedStatements)
             {
-                System.out.println("Parsing next statement...");
-                System.out.println(PrettyPrinter.format(parsedStatement));
+                System.out.println(
+                        PrettyPrinter.format(statement)
+                );
             }
         }
         catch (ParserException ignored)
