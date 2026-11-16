@@ -96,7 +96,7 @@ public record Token(TokenType type,
         // --- Type names ---
         OBJECT, INT, FLOAT, DOUBLE,
         STRING, CHAR, BOOL, VOID, STRUCT,
-        ENUM,
+        ENUM, LONG,
 
 
         // --- Arithmetic Operators ---
