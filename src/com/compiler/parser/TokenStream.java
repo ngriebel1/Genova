@@ -8,7 +8,7 @@ import java.util.ArrayList;
 
 /**
  * {@code TokenStream} provides a wrapper around an ArrayList<> that contains helper
- *  methods that will be used by the parser to traverse a tokenList.
+ *  methods to be used by the parser to traverse a tokenList.
  * @author Nicholas J. Griebel
  *
  * @see Token
