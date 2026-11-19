@@ -1,12 +1,3 @@
-/// Written by Nicholas J. Griebel
-/// Development began 11/1/2026
-///
-/// The Scanner class contains a lexical analyzer for the Genova interpreted programming language. <br>
-/// A source string is used to construct a new Scanner instance, and either {@code scanLine()} or <br>
-/// {@code scan()} is used to retrieve all valid tokens from the source string. In the event that <br>
-/// invalid or malformed tokens are discovered, a ScannerException is thrown indicating what went <br>
-/// wrong and where.
-
 package com.compiler.scanner;
 
 // Project environment imports
@@ -1021,7 +1012,7 @@ public class Scanner {
                     }
                     else if (reader.isSpace(ch))
                     {
-                        // No need to handle spaces. Yield a waste token
+                        // Ignore spaces.
                         yield null;
                     }
                     else
@@ -1094,30 +1085,23 @@ public class Scanner {
      */
     public List<Token> scan()
     {
-        // This list contains a concatenation of all lists obtained from scanLine()
         List<Token> tokenList = new ArrayList<>();
 
-        // Scan the whole file/string
         while (!reader.isAtEnd())
         {
             try
             {
-                // Continuously append the new tokenLists retrieved
-                // from the scanLine() method
                 tokenList.addAll(scanLine());
             }
             catch (ScannerException e)
             {
-                // Display the exception message
                 System.err.println(e.getMessage());
 
-                // Display enhanced diagnostic messages
                 e.printDiagnostic(reader);
             }
 
         }
 
-        // Add the final EOF token
         tokenList.add(
                 Token.simple(
                         TokenType.EOF,
@@ -1129,31 +1113,21 @@ public class Scanner {
                 )
         );
 
-        // Send her home
         return tokenList;
     }
 
-    /// Used to determine if the end of the source string has been
-    ///     reached. True if at end - false if not.
-    /// @return {@code boolean}
+    /// Returns whether the source string has been fully consumed.
     public boolean isAtEnd() { return reader.isAtEnd(); }
 
-    /// The {@code getCurrentLine()} getter has been included to provide
-    ///     line data to the compilers error handling system. It allows
-    ///     extensive error reporting to be implemented
+    /// Returns the current source line.
     public int getCurrentLine() { return reader.getCurrentLine(); }
 
-    /// Similar to {@code getCurrentLine()}
-    /// @see getCurrentLine()
+    /// Returns the current character position on the source line.
     public int getCurrentChar() { return reader.getCurrentChar(); }
 
-    /// Returns the index pointer which is used to iterate through the
-    ///     source string.
-    /// @return {@code int}
+    /// Returns the current character index in the source string.
     public int getCurrentIndex() { return reader.getCurrentIndex(); }
 
-    /// Returns a copy of the sourceReader for proper printing of
-    /// lines containing exceptions.
-    /// @return {@code SourceReader}
+    /// Returns the reader used to track source locations.
     public SourceReader getReader() { return this.reader; }
 }
