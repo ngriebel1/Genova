@@ -1,6 +1,9 @@
 package com.compiler.parser;
 
 import com.compiler.scanner.Token;
+import com.compiler.ast.Stmt;
+import com.compiler.ast.Expr;
+import com.compiler.ast.FunctionBody;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,31 +21,31 @@ public final class PrettyPrinter {
     private record TreeLayout(List<String> lines, int root, int width) {
     }
 
-    public static String format(Parser.Expr expression) {
+    public static String format(Expr expression) {
         return String.join(System.lineSeparator(), layout(expression).lines());
     }
 
-    public static String format(Parser.Stmt statement) {
+    public static String format(Stmt statement) {
         return String.join(System.lineSeparator(), layout(statement).lines());
     }
 
-    private static TreeLayout layout(Parser.Stmt statement) {
-        if (statement instanceof Parser.Stmt.Block(List<Parser.Stmt> statements)) {
+    private static TreeLayout layout(Stmt statement) {
+        if (statement instanceof Stmt.Block(List<Stmt> statements)) {
             List<TreeLayout> children = statements.stream()
                     .map(PrettyPrinter::layout)
                     .toList();
             return layoutNode("Block", children);
         }
 
-        if (statement instanceof Parser.Stmt.AssignmentStatement(Parser.Expr.Assign assignment)) {
+        if (statement instanceof Stmt.AssignmentStatement(Expr expression)) {
             return layoutNode(
                     "AssignmentStatement",
-                    List.of(layout(assignment))
+                    List.of(layout(expression))
             );
         }
 
-        if (statement instanceof Parser.Stmt.VariableDeclarationStatement(
-                List<Token> modifiers, Token type, int ptrDepth, Token name, Parser.Expr value
+        if (statement instanceof Stmt.VariableDeclarationStatement(
+                List<Token> modifiers, Token type, int ptrDepth, Token name, Expr value
         )) {
             List<TreeLayout> children = layoutDeclarationHeader(
                     modifiers,
@@ -56,9 +59,9 @@ public final class PrettyPrinter {
             return layoutNode("VariableDeclarationStatement", children);
         }
 
-        if (statement instanceof Parser.Stmt.FunctionDeclarationStatement(
-                List<Token> modifiers, Token type, int ptrDepth, Token name, List<Parser.Stmt.Parameter> parameters,
-                Parser.FunctionBody body
+        if (statement instanceof Stmt.FunctionDeclarationStatement(
+                List<Token> modifiers, Token type, int ptrDepth, Token name, List<Stmt.Parameter> parameters,
+                FunctionBody body
         )) {
             List<TreeLayout> children = layoutDeclarationHeader(
                     modifiers,
@@ -70,8 +73,8 @@ public final class PrettyPrinter {
             return layoutNode("FunctionDeclarationStatement", children);
         }
 
-        if (statement instanceof Parser.Stmt.IfStatement(
-                Parser.Expr condition, Parser.Stmt ifBody, Parser.Stmt elseBody
+        if (statement instanceof Stmt.IfStatement(
+                Expr condition, Stmt ifBody, Stmt elseBody
         )) {
             List<TreeLayout> children = new ArrayList<>();
             children.add(layoutNode("Condition", List.of(layout(condition))));
@@ -107,30 +110,30 @@ public final class PrettyPrinter {
         return children;
     }
 
-    private static TreeLayout layout(Parser.FunctionBody body) {
-        if (body instanceof Parser.FunctionBody.BlockBody(Parser.Stmt.Block block)) {
+    private static TreeLayout layout(FunctionBody body) {
+        if (body instanceof FunctionBody.BlockBody(Stmt.Block block)) {
             return layoutNode("BlockBody", List.of(layout(block)));
         }
 
-        if (body instanceof Parser.FunctionBody.ExpressionBody(Parser.Expr expression)) {
+        if (body instanceof FunctionBody.ExpressionBody(Expr expression)) {
             return layoutNode("ExpressionBody", List.of(layout(expression)));
         }
 
         throw new IllegalStateException("Unknown function body type: " + body.getClass());
     }
 
-    private static TreeLayout layout(Parser.Expr expression) {
-        if (expression instanceof Parser.Expr.Literal(Object value)) {
+    private static TreeLayout layout(Expr expression) {
+        if (expression instanceof Expr.Literal(Object value)) {
             String label = String.valueOf(value);
             return new TreeLayout(List.of(label), label.length() / 2, label.length());
         }
 
-        if (expression instanceof Parser.Expr.Variable(Token name)) {
+        if (expression instanceof Expr.Variable(Token name)) {
             String label = name.lexeme();
             return new TreeLayout(List.of(label), label.length() / 2, label.length());
         }
 
-        if (expression instanceof Parser.Expr.Grouping(Parser.Expr expression1)) {
+        if (expression instanceof Expr.Grouping(Expr expression1)) {
             TreeLayout child = layout(expression1);
             int childOffset = Math.max(0, "Grouping".length() / 2 - child.root());
             int root = childOffset + child.root();
@@ -142,11 +145,15 @@ public final class PrettyPrinter {
             return new TreeLayout(lines, root, width);
         }
 
-        if (expression instanceof Parser.Expr.Assign(Parser.Expr.Variable target, Token assignop, Parser.Expr value)) {
+        if (expression instanceof Expr.Unary(Token unaryOperator, Expr value)) {
+            return layoutNode("Unary: " + unaryOperator.lexeme(), List.of(layout(value)));
+        }
+
+        if (expression instanceof Expr.Assign(Expr target, Token assignop, Expr value)) {
             return layoutBinary(assignop.lexeme(), target, value);
         }
 
-        if (expression instanceof Parser.Expr.Binary(Parser.Expr left, Token operator, Parser.Expr right)) {
+        if (expression instanceof Expr.Binary(Expr left, Token operator, Expr right)) {
             return layoutBinary(operator.lexeme(), left, right);
         }
 
@@ -209,7 +216,7 @@ public final class PrettyPrinter {
         return new TreeLayout(lines, root, width);
     }
 
-    private static TreeLayout layoutBinary(String label, Parser.Expr leftExpression, Parser.Expr rightExpression) {
+    private static TreeLayout layoutBinary(String label, Expr leftExpression, Expr rightExpression) {
         TreeLayout left = layout(leftExpression);
         TreeLayout right = layout(rightExpression);
         int rightOffset = left.width() + 4;

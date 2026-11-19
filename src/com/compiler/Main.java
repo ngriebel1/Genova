@@ -4,36 +4,40 @@ import com.compiler.exceptions.ParserException;
 import com.compiler.parser.Parser;
 import com.compiler.parser.PrettyPrinter;
 import com.compiler.scanner.Scanner;
+import com.compiler.ast.Stmt;
+
 import java.util.List;
 import java.util.ArrayList;
 
 
 /**
- * Currently, the {@code Main} class is a simple debug driver for the
- * {@link Scanner} class. It defines a test string, instantiates a {@link Scanner}
- * object, and initiates a scan of the string. Tokens that are retrieved from the
- * source file are printed to standard output via System.out.println().
+ * Debug driver that scans and parses a sample program, then prints its syntax tree.
  */
 public class Main {
     /**
-     * @author Nicholas Griebel
-     * Main method used for debugging
+     * Runs the sample scanner/parser demonstration.
      */
     static void main() {
         String testString = (
                 """
-                static const int func() {
-                    static int x = 33;
+                static const int *func() {
+                    int *x = 33;
+                    int y = 97;
                 
+                    *x = 3;
+                1
                     if (x > 10) {
                         if (x == 33)
                         {
-                            // How'd X get larger than 10? get back here...
                             x = 34;
                         }
                     }
                     else {
-                        x = 10;
+                    // TODO: Assignment Statements are rejecting UNARY expressions
+                    //      due to the assignment statement explicitly relying on Expr.Variable
+                    //      instead of allowing Expr (general). Change this to allow unary 
+                    //      expressions to act as proper LHS values in an assignment statement.
+                        x = y;
                     }
                 }
                 """
@@ -49,7 +53,7 @@ public class Main {
 
         try
         {
-            List<Parser.Stmt> parsedStatements = new ArrayList<Parser.Stmt>();
+            List<Stmt> parsedStatements = new ArrayList<Stmt>();
             parsedStatements = parser.parse();
 
             for (var statement : parsedStatements)

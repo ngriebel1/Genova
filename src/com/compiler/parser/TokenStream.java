@@ -7,8 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 
 /**
- * {@code TokenStream} provides a wrapper around an ArrayList<> that contains helper
- *  methods that will be used by the parser to traverse a tokenList.
+ * Provides lookahead and consumption helpers for traversing a token list.
  * @author Nicholas J. Griebel
  *
  * @see Token
@@ -65,21 +64,15 @@ public class TokenStream
      */
     public final boolean match(Token.TokenType @NotNull ... types)
     {
-        // Iterate through the included type parameters
         for (var type : types)
         {
             if (peek().type() == type)
             {
-                // Consume the token
                 get();
-
-                // We got a match
                 return true;
             }
         }
 
-        // Fallthrough -- We didn't get a match.
-        // No match -- No dinner
         return false;
     }
 
@@ -119,8 +112,6 @@ public class TokenStream
      */
     public final Token previous()
     {
-        // Return the previous token (No bounds check
-        // necessary since it's a history retrieval)
         return tokenList.get(current - 1);
     }
 
@@ -146,7 +137,6 @@ public class TokenStream
      */
     public final Token peek()
     {
-        // Return the current token WITHOUT advancing the token pointer
         return tokenList.get(current);
     }
 
@@ -159,8 +149,6 @@ public class TokenStream
      */
     public final Token get()
     {
-        // Return the current token and advance the token pointer ONLY IF
-        // we're not at the end of the tokenList
         if (!isAtEnd())
         {
             current++;

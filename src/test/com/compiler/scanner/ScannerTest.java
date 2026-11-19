@@ -15,7 +15,6 @@ class ScannerTest {
         String source = "string hello = \"World\";";
         Scanner scanner = new Scanner(source);
 
-        // Scan line by line (or you can loop until EOF)
         List<Token> tokens = scanner.scanLine();
 
         assertEquals(5, tokens.size());
@@ -78,7 +77,6 @@ class ScannerTest {
         String source = "double bad = 33.a;";
         Scanner scanner = new Scanner(source);
 
-        // First line contains the malformed float (method reference used instead of lambda
         ScannerException ex = assertThrows(ScannerException.class, scanner::scanLine);
 
         assertTrue(ex.getMessage().contains("Malformed floating point literal"));
@@ -91,7 +89,6 @@ class ScannerTest {
         String source = "string unterm = \"Hello, World;";
         Scanner scanner = new Scanner(source);
 
-        // Method reference used instead of lambda
         ScannerException ex = assertThrows(ScannerException.class, scanner::scanLine);
 
         assertTrue(ex.getMessage().contains("Unterminated String Literal") ||

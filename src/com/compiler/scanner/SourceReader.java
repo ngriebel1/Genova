@@ -11,9 +11,7 @@ public class SourceReader
     public static char EOF = '\0';
 
     /**
-     * Functions similarly to a character stream—providing methods like {@link #get()},
-     * {@link #peek()}, and {@link isAtEnd()}—but operates directly over an in-memory
-     * source string rather than an underlying {@link java.io.InputStream}.
+     * Reads characters and tracks source locations in an in-memory string.
      *
      * @author Nicholas J. Griebel
      */
@@ -27,9 +25,7 @@ public class SourceReader
 
     // --- METHODS -----------------------------
 
-    /// {@code getLine(int)} retrieves from the source file a line specified
-    ///     by parameter {@code int lineNumber}
-    /// @return {@code String}
+    /// Returns the requested one-based line from the source string.
     public String getLine(int lineNumber) {
 
         if (lineNumber < 1) {
@@ -43,51 +39,41 @@ public class SourceReader
         for (int i = 0; i <= _source.length(); i++) {
             boolean atEnd = (i == _source.length());
 
-            // Check for newline or end of source
             if (atEnd || _source.charAt(i) == '\n') {
                 if (currentLine == lineNumber) {
-                    // Trim trailing carriage return if present (\r\n)
                     int endIndex = (i > 0 && _source.charAt(i - 1) == '\r') ? i - 1 : i;
                     return _source.substring(startIndex, endIndex);
                 }
                 currentLine++;
-                startIndex = i + 1; // Next line starts right after the newline
+                startIndex = i + 1;
             }
         }
 
         System.err.println("The specified line number does not exist!");
         return null;
     }
-    /// {@code isAtEnd()} determines if end-of-string has been reached by comparing the
-    ///     location of the index pointer to the size of the source string
-    /// @return {@code boolean}
+    /// Returns whether the source string has been fully consumed.
     public boolean isAtEnd()
     {
         return getCurrentIndex() >= _source.length();
     }
-    /// {@code isAlpha(char)} determines if a char is an alphabetical character
-    /// @return {@code boolean}
+    /// Returns whether the character is an ASCII letter.
     public boolean isAlpha(char ch)
     {
         return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
     }
-    /// {@code isDigit(char)} determines if a char is a number
-    /// @return {@code boolean}
+    /// Returns whether the character is an ASCII digit.
     public boolean isDigit(char ch) { return (ch >= '0' && ch <= '9'); }
-    /// {@code isAlphaNum(char)} determines if a char is an alphabetical OR a digit
-    /// @return {@code boolean}
+    /// Returns whether the character is an ASCII letter or digit.
     public boolean isAlphaNum(char ch) { return (isAlpha(ch) || isDigit(ch)); }
-    /// {@code isSpace(char)} determines if a char is a space
-    /// @return {@code boolean}
+    /// Returns whether the character is a space.
     public boolean isSpace(char ch) { return (ch == ' '); }
-    /// {@code isNewline(char)} determines if a char is a newline
-    /// @return {@code boolean}
+    /// Returns whether the character is a newline.
     public boolean isNewline(char ch) { return (ch == '\n'); }
-    /// {@code isEOF(char)} determines if a char is an end-of-file symbol
-    /// @return {@code boolean}
+    /// Returns whether the character is the end-of-input sentinel.
     public boolean isEOF(char ch) { return (ch == EOF); }
 
-    /// {@code munch()} wastes a char using {@code get()}
+    /// Consumes one character if input remains.
     public void munch()
     {
         if (isAtEnd())
@@ -95,30 +81,20 @@ public class SourceReader
             return;
         }
 
-        // Munch a char
         this.get();
     }
 
-    /// {@code peek()} returns the character currently being pointed at
-    ///     but does not advance the index pointer.
-    /// @return {@code char}
+    /// Returns the next character without advancing.
     public char peek()
     {
-        // Note: _index always points at the "next" character
-        //          due to how we handle increments in .get()
         return _source.charAt(getCurrentIndex());
     }
 
-    /// {@code get()} returns the character currently being pointed at
-    ///     and advances the index pointer by one.
-    /// @return {@code char}
+    /// Returns the next character and advances the reader.
     public char get()
     {
-        // Get the char we're pointing at
         char c = _source.charAt(getCurrentIndex());
 
-        // Handle end-of-lines properly by using '\n' chars to increment our
-        // _line and _char locators
         if (c == '\n')
         {
             ++_line;
@@ -129,7 +105,6 @@ public class SourceReader
             ++_char;
         }
 
-        // Move the position pointer forwards, "getting" the previous char
         ++_index;
 
         return c;

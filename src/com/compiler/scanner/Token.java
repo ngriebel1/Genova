@@ -24,7 +24,7 @@ public record Token(TokenType type,
      * Generates a token that contains an object literal
      * @param type The type of token being generated. See {@link Token.TokenType}
      * @param lexeme The raw text in {@code String} form
-     * @param literal The Object literal (For example, if this is an INT_LITERAL token, this
+     * @param literal The Object literal (For example, if this is an INTEGER_LITERAL token, this
      *                parameter should be an {@code int} object)
      * @param at The location where this token resides in the source string. See {@link Token.Location}
      * @return The generated {@link Token}
@@ -50,7 +50,7 @@ public record Token(TokenType type,
 
     /**
      * Returns a string representation of the currently instantiated {@link Token}.
-     *  The representation contains the {@link TokenType}, {@code Lexeme}, and it's
+     *  The representation contains the {@link TokenType}, lexeme, and its
      *  {@link Token.Location} in the source string.
      * @return A string representation of this {@link Token}
      * @author Nicholas J. Griebel
@@ -76,7 +76,7 @@ public record Token(TokenType type,
 
     /**
      * Represents all possible tokens that the scanner will encounter
-     *  during it's scanning process.
+     *  during its scanning process.
      */
     public enum TokenType
     {
